@@ -1,43 +1,60 @@
-import { Form, redirect, useActionData, useLoaderData, Link } from "react-router";
-import type { LoaderArgs, ActionArgs } from "./+types/verify-otp";
-import { verifyOTP } from "../lib/auth";
+import { redirect, Link, useNavigate, useSearchParams } from "react-router";
+import { useState, useEffect } from "react";
 import { sessionCookie } from "../lib/session";
-
-export async function loader({ request }: LoaderArgs) {
-  const url = new URL(request.url);
-  const email = url.searchParams.get("email");
-  const type = url.searchParams.get("type");
-  
-  if (!email || !type) {
-    return redirect("/login");
-  }
-  
-  return { email, type };
-}
-
-export async function action({ request }: ActionArgs) {
-  const formData = await request.formData();
-  const email = formData.get("email") as string;
-  const otp = formData.get("otp") as string;
-  
-  if (!email || !otp) {
-    return { error: "Email and OTP are required" };
-  }
-  
-  const result = verifyOTP(email, otp);
-  
-  if (result.success && result.sessionId) {
-    const headers = new Headers();
-    headers.append("Set-Cookie", await sessionCookie.serialize(result.sessionId));
-    return redirect("/dashboard", { headers });
-  }
-  
-  return { error: result.message };
-}
+import { getApiUrl } from "../lib/config";
 
 export default function VerifyOTP() {
-  const { email, type } = useLoaderData<typeof loader>();
-  const actionData = useActionData<typeof action>();
+  const [searchParams] = useSearchParams();
+  const [otp, setOtp] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
+  
+  const email = searchParams.get("email");
+  const type = searchParams.get("type");
+
+  useEffect(() => {
+    if (!email || !type) {
+      navigate("/login");
+    }
+  }, [email, type, navigate]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    
+    if (!email || !otp) {
+      setError("Email and OTP are required");
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const response = await fetch(getApiUrl("VERIFY_OTP"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, otp }),
+      });
+
+      const data = await response.json();
+      
+      if (response.ok && data.sessionId) {
+        // Set session cookie
+        document.cookie = await sessionCookie.serialize(data.sessionId);
+        navigate("/dashboard");
+      } else {
+        setError(data.message || "Verification failed");
+      }
+    } catch (err) {
+      setError("Network error. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (!email || !type) {
+    return null;
+  }
   
   return (
     <div className="min-h-screen flex items-center justify-center">
@@ -49,8 +66,7 @@ export default function VerifyOTP() {
           </p>
         </div>
         
-        <Form method="post" className="space-y-6">
-          <input type="hidden" name="email" value={email} />
+        <form onSubmit={handleSubmit} className="space-y-6">
           
           <div>
             <label htmlFor="otp" className="block text-sm font-medium text-gray-700">
@@ -62,22 +78,24 @@ export default function VerifyOTP() {
               type="text"
               required
               maxLength={6}
+              value={otp}
+              onChange={(e) => setOtp(e.target.value)}
               className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-center text-lg tracking-widest"
               placeholder="123456"
             />
           </div>
           
-          {actionData?.error && (
-            <div className="text-red-600 text-sm">{actionData.error}</div>
+          {error && (
+            <div className="text-red-600 text-sm">{error}</div>
           )}
           
           <button
             type="submit"
             className="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
           >
-            Verify Code
+            {loading ? "Verifying..." : "Verify Code"}
           </button>
-        </Form>
+        </form>
         
         <div className="text-center">
           <span className="text-gray-600">Didn't receive the code? </span>

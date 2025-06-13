@@ -1,26 +1,43 @@
-import { Form, redirect, useActionData, Link } from "react-router";
-import type {  ActionArgs } from "./+types/login";
-import { loginUser } from "../lib/auth";
-
-export async function action({ request }: ActionArgs) {
-  const formData = await request.formData();
-  const email = formData.get("email") as string;
-  
-  if (!email || !email.includes("@")) {
-    return { error: "Please enter a valid email address" };
-  }
-  
-  const result = loginUser(email);
-  
-  if (result.success) {
-    return redirect(`/verify-otp?email=${encodeURIComponent(email)}&type=login`);
-  }
-  
-  return { error: result.message };
-}
+import { redirect, Link, useNavigate } from "react-router";
+import { useState } from "react";
+import { getApiUrl } from "../lib/config";
 
 export default function Login() {
-  const actionData = useActionData<typeof action>();
+  const [email, setEmail] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    
+    if (!email || !email.includes("@")) {
+      setError("Please enter a valid email address");
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const response = await fetch(getApiUrl("LOGIN"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+
+      const data = await response.json();
+      
+      if (response.ok) {
+        navigate(`/verify-otp?email=${encodeURIComponent(email)}&type=login`);
+      } else {
+        setError(data.message || "Login failed");
+      }
+    } catch (err) {
+      setError("Network error. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
   
   return (
     <div className="min-h-screen flex items-center justify-center">
@@ -30,7 +47,7 @@ export default function Login() {
           <p className="mt-2 text-gray-600">Enter your email to continue</p>
         </div>
         
-        <Form method="post" className="space-y-6">
+        <form onSubmit={handleSubmit} className="space-y-6">
           <div>
             <label htmlFor="email" className="block text-sm font-medium text-gray-700">
               Email Address
@@ -40,22 +57,24 @@ export default function Login() {
               name="email"
               type="email"
               required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
               className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
               placeholder="Enter your email"
             />
           </div>
           
-          {actionData?.error && (
-            <div className="text-red-600 text-sm">{actionData.error}</div>
+          {error && (
+            <div className="text-red-600 text-sm">{error}</div>
           )}
           
           <button
             type="submit"
             className="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
           >
-            Continue
+            {loading ? "Processing..." : "Continue"}
           </button>
-        </Form>
+        </form>
         
         <div className="text-center">
           <span className="text-gray-600">Don't have an account? </span>

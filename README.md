@@ -1,24 +1,39 @@
-# Welcome to React Router!
+# ReAuth Flow
 
-A modern, production-ready template for building full-stack React applications using React Router.
-
-[![Open in StackBlitz](https://developer.stackblitz.com/img/open_in_stackblitz.svg)](https://stackblitz.com/github/remix-run/react-router-templates/tree/main/default)
+A modern React Router v7 frontend application with comprehensive authentication features including user registration, OTP verification, login, and secure logout functionality.
 
 ## Features
 
-- 🚀 Server-side rendering
-- ⚡️ Hot Module Replacement (HMR)
-- 📦 Asset bundling and optimization
-- 🔄 Data loading and mutations
-- 🔒 TypeScript by default
-- 🎉 TailwindCSS for styling
-- 📖 [React Router docs](https://reactrouter.com/)
+### 🔐 Separate Authentication Backend Microservice
+- **User Registration** - Email-based registration with OTP verification
+- **Login Flow** - Secure login with OTP verification
+- **Session Management** - localStorage-based session handling with CSRF protection
+- **Secure Logout** - Proper session cleanup with API integration
+- **Protected Routes** - Dashboard with authentication guards
+
+### 🛠️ Technical Features
+- **React Router v7** - Modern routing with SSR support
+- **TypeScript** - Type-safe development
+- **API Integration** - RESTful API client with CSRF token handling
+- **Session Storage** - Secure localStorage-based session management
+- **Error Handling** - Comprehensive error states and user feedback
+- **Hot Module Replacement (HMR)** - Fast development experience
+
+### 🎨 UI/UX
+- **TailwindCSS** - Modern, responsive styling
+- **Loading States** - Smooth user experience with loading indicators
+- **Error Messages** - Clear user feedback for all error states
+- **Debug Components** - Development tools for session and CSRF debugging
 
 ## Getting Started
 
-### Installation
+### Prerequisites
 
-Install the dependencies:
+- Node.js (v18 or higher)
+- npm or pnpm
+- Backend API server running on `localhost:8090` (optional for development)
+
+### Installation
 
 ```bash
 npm install
@@ -26,13 +41,98 @@ npm install
 
 ### Development
 
-Start the development server with HMR:
+Start the development server:
 
 ```bash
 npm run dev
 ```
 
-Your application will be available at `http://localhost:5173`.
+The application will be available at `http://localhost:5173`.
+
+### Backend Integration
+
+This frontend is designed to work with a backend API server. Configure the API base URL in:
+
+```typescript
+// app/lib/config.ts
+export const API_CONFIG = {
+  BASE_URL: import.meta.env.VITE_API_BASE_URL || "http://localhost:8090",
+  // ...
+}
+```
+
+## Architecture
+
+### Project Structure
+
+```
+app/
+├── components/           # Reusable UI components
+│   ├── DebugCSRF.tsx    # CSRF token debugging
+│   └── DebugSession.tsx # Session debugging
+├── lib/                 # Core utilities and services
+│   ├── api.ts          # API client with CSRF handling
+│   ├── auth-examples.ts # High-level auth flow functions
+│   ├── config.ts       # Configuration and API endpoints
+│   ├── csrf.ts         # CSRF token management
+│   └── session-storage.ts # Session management utilities
+├── routes/             # Application routes
+│   ├── _index.tsx     # Home page
+│   ├── login.tsx      # Login page
+│   ├── register.tsx   # Registration page
+│   ├── verify-otp.tsx # OTP verification page
+│   ├── dashboard.tsx  # Protected dashboard
+│   └── logout.tsx     # Logout handler
+└── welcome/           # Welcome components
+```
+
+### Authentication Flow
+
+1. **Registration**: `/register`
+   - User enters email
+   - OTP sent to email
+   - Redirects to OTP verification
+
+2. **OTP Verification**: `/verify-otp`
+   - User enters received OTP
+   - Creates authenticated session
+   - Redirects to dashboard
+
+3. **Login**: `/login`
+   - User enters email
+   - OTP sent to email
+   - Redirects to OTP verification
+
+4. **Dashboard**: `/dashboard`
+   - Protected route requiring valid session
+   - Displays user information
+   - Logout functionality
+
+5. **Logout**: `/logout`
+   - Clears session data
+   - Calls logout API endpoint
+   - Redirects to home page
+
+### API Integration
+
+The frontend integrates with backend APIs:
+
+- **POST /register** - User registration
+- **POST /login** - User login
+- **POST /verify-otp** - OTP verification
+- **POST /logout** - User logout (with session token and email)
+
+All API calls include:
+- CSRF token protection
+- Session token authentication
+- Comprehensive error handling
+
+### Session Management
+
+- **Storage**: localStorage-based session storage
+- **Security**: CSRF tokens for all state-changing operations
+- **Expiration**: Automatic session validation and cleanup
+- **Debugging**: Built-in debug components for development
 
 ## Building for Production
 
@@ -42,46 +142,42 @@ Create a production build:
 npm run build
 ```
 
-## Deployment
-
-### Docker Deployment
-
-To build and run using Docker:
+## Environment Variables
 
 ```bash
-docker build -t my-app .
-
-# Run the container
-docker run -p 3000:3000 my-app
+# Optional: Override default API base URL
+VITE_API_BASE_URL=http://your-api-server.com
 ```
 
-The containerized application can be deployed to any platform that supports Docker, including:
+## Development Tools
 
-- AWS ECS
-- Google Cloud Run
-- Azure Container Apps
-- Digital Ocean App Platform
-- Fly.io
-- Railway
+### Debug Components
 
-### DIY Deployment
+The app includes debug components for development:
 
-If you're familiar with deploying Node applications, the built-in app server is production-ready.
+- **DebugSession** - Shows current session state, user data, and expiration
+- **DebugCSRF** - Shows CSRF token status and validity
 
-Make sure to deploy the output of `npm run build`
+These components are only visible in development and help debug authentication issues.
 
-```
-├── package.json
-├── package-lock.json (or pnpm-lock.yaml, or bun.lockb)
-├── build/
-│   ├── client/    # Static assets
-│   └── server/    # Server-side code
-```
+### API Client Features
 
-## Styling
+- Automatic CSRF token handling
+- Session token injection
+- Response data parsing and storage
+- Comprehensive error handling
+- Request/response logging
 
-This template comes with [Tailwind CSS](https://tailwindcss.com/) already configured for a simple default starting experience. You can use whatever CSS framework you prefer.
+## Security Features
+
+- **CSRF Protection** - All state-changing requests include CSRF tokens
+- **Session Validation** - Automatic session expiration checking
+- **Secure Storage** - Proper session data management
+- **Error Boundaries** - Graceful error handling throughout the app
+
+## Browser Support
+
+- Modern browsers with ES2020+ support
+- localStorage API required for session management
 
 ---
-
-Built with ❤️ using React Router.

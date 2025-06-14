@@ -1,62 +1,90 @@
-import { Form, redirect, useLoaderData } from "react-router";
-import type { LoaderArgs, ActionArgs } from "./+types/dashboard";
-import { getUser, logout } from "../lib/auth";
-import { sessionCookie } from "../lib/session";
-
-export async function loader({ request }: LoaderArgs) {
-  const cookieHeader = request.headers.get("Cookie");
-  const sessionId = await sessionCookie.parse(cookieHeader);
-  
-  if (!sessionId) {
-    return redirect("/login");
-  }
-  
-  const user = getUser(sessionId);
-  if (!user) {
-    return redirect("/login");
-  }
-  
-  return { user };
-}
-
-// export async function action({ request }: ActionArgs) {
-//   const cookieHeader = request.headers.get("Cookie");
-//   const sessionId = await sessionCookie.parse(cookieHeader);
-  
-//   if (sessionId) {
-//     logout(sessionId);
-//   }
-  
-//   const headers = new Headers();
-//   headers.append("Set-Cookie", await sessionCookie.serialize("", { maxAge: 0 }));
-  
-//   return redirect("/", { headers });
-// }
+import { useNavigate } from "react-router";
+import { useState, useEffect } from "react";
+import DebugSession from "../components/DebugSession";
 
 export default function Dashboard() {
-  const { user } = useLoaderData<typeof loader>();
-//   const user ={    email: "test@gmail.com",
-//     isVerified: true,
-//     id: "12345"
-//   };
+  const [user, setUser] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        // Add a small delay to ensure localStorage is ready
+        await new Promise((resolve) => setTimeout(resolve, 100));
+
+        const { hasValidSession, getSessionUser, getSessionInfo } =
+          await import("../lib/session-storage");
+
+        // Check if we're in the browser
+        if (typeof window === "undefined") {
+          setLoading(false);
+          return;
+        }
+
+        const sessionValid = hasValidSession();
+
+        if (!sessionValid) {
+          navigate("/login", { replace: true });
+          return;
+        }
+
+        const sessionUser = getSessionUser();
+
+        if (!sessionUser || !sessionUser.id) {
+          navigate("/login", { replace: true });
+          return;
+        }
+        setUser({
+          email: sessionUser.email || "No email",
+          isVerified: true,
+          id: sessionUser.id,
+        });
+      } catch (error) {
+        console.error("Dashboard auth check error:", error);
+        navigate("/login", { replace: true });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    checkAuth();
+  }, [navigate]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Checking authentication...</p>
+          <p className="text-sm text-gray-400 mt-2">
+            Please wait while we verify your session
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return null; // Will redirect to login
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       <header className="bg-white shadow">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-6">
             <h1 className="text-3xl font-bold text-gray-200">Dashboard</h1>
-            <Form method="post">
-              <button
-                type="submit"
-                className="px-4 py-2 border border-transparent rounded-md shadow-sm text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-              >
-                Logout
-              </button>
-            </Form>
+            <button
+              onClick={() => navigate("/logout")}
+              className="px-4 py-2 border border-transparent rounded-md shadow-sm text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+            >
+              Logout
+            </button>
           </div>
         </div>
       </header>
-      
+
       <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
         <div className="px-4 py-6 sm:px-0">
           <div className="border-4 border-dashed border-gray-200 rounded-lg p-8">
@@ -73,6 +101,7 @@ export default function Dashboard() {
           </div>
         </div>
       </main>
+      <DebugSession />
     </div>
   );
 }
